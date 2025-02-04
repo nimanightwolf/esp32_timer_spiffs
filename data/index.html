@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="fa">
+
+<head>
+    <meta charset="UTF-8">
+    <title>لیست زمان شروع و پایان کلاس ها</title>
+    <style>
+        .cover {
+            align-items: center;
+            text-align: center;
+            width: 80%;
+            margin: 0 auto;
+            display: inline-block;
+            /* background-color: #95a5a6; */
+            padding: 20px;
+            border-radius: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .column {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: right;
+            flex: 1 1 300px;
+            /* ستون‌ها حداقل 300px عرض خواهند داشت */
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        .column h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        input[type="time"] {
+            width: 100%;
+            margin: 10px 0;
+            padding: 8px;
+            font-size: 16px;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        button {
+            padding: 10px 40px;
+            background-color: cadetblue;
+            color: white;
+            border-radius: 15px;
+            border: none;
+            font-size: 30px;
+        }
+
+        .label {
+            text-justify: auto;
+            text-align: right;
+            display: block;
+            margin: 5px 0;
+            font-weight: bold;
+
+        }
+
+        .labelw {
+            display: block;
+            margin: 5px 0;
+            font-weight: bold;
+            font-size: 50px;
+        }
+
+
+        #page-about {
+            display: none;
+            text-align: center;
+            direction: rtl;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                /* در صفحات کوچک ستون‌ها عمودی چیده می‌شوند */
+            }
+
+            .column {
+                max-width: 100%;
+                /* ستون‌ها تمام عرض صفحه را اشغال می‌کنند */
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        var timerData = null;
+        function show_timer_two(day, key) {
+            const checkbox = document.getElementById(`checkbox_${day}_${key}`);
+            const timerTwo = document.getElementById(`timer_two_${day}_${key}`);
+            if (checkbox && timerTwo) {
+                timerTwo.style.display = checkbox.checked ? 'block' : 'none';
+                getTimersJsTest(timerData);
+            }
+
+
+        }
+        async function loadTimerDataFromFile() {
+            try {
+                const response = await fetch('/getTimerData', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error:', error);
+                return null;
+            }
+        }
+
+        async function saveTimerDataToFile(data) {
+            try {
+                const response = await fetch('/saveTimerData', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return true;
+            } catch (error) {
+                console.error('Error:', error);
+                return false;
+            }
+        }
+
+        function settime_on(day, key, inputId) {
+            const value = document.getElementById(inputId).value;
+            console.log(`Setting time ON for day ${day}, key ${key} to ${value}`);
+
+            if (inputId.includes('two')) {
+                timerData[day][`${key}on2`] = value;
+            } else {
+                timerData[day][`${key}on`] = value;
+            }
+
+            saveTimerDataToFile();
+            console.log('Updated data:', timerData);
+        }
+        function initializeTimerData() {
+            try {
+                const savedData = localStorage.getItem('timerData');
+                if (savedData) {
+                    const parsed = JSON.parse(savedData);
+                    if (Array.isArray(parsed) && parsed.length === 7) {
+                        timerData = parsed;
+                    } else {
+                        timerData = [...DEFAULT_TIMER_DATA];
+                    }
+                } else {
+                    timerData = [...DEFAULT_TIMER_DATA];
+                }
+            } catch (error) {
+                console.error('Error initializing timer data:', error);
+                timerData = [...DEFAULT_TIMER_DATA];
+            }
+        }
+
+        function settime_off(day, key, inputId) {
+            const value = document.getElementById(inputId).value;
+            console.log(`Setting time OFF for day ${day}, key ${key} to ${value}`);
+
+            // بروزرسانی مقدار در آبجکت داده
+            if (inputId.includes('two')) {
+                // برای تایمر دوم 
+                timerData[day][`${key}off2`] = value;
+
+            } else {
+                // برای تایمر اول
+                timerData[day][`${key}off`] = value;
+
+            }
+
+            saveTimerDataToFile();
+            console.log('Updated data:', timerData);
+        }
+        function setHoliday(day, key) {
+            const isHoliday = document.getElementById(`checkboxH_${day}_${key}`).checked;
+            // مقدار یکتا برای هر روز در صورت تعطیل بودن
+            const holidayValue = `holiday_day_${day}_${key}`;
+            console.log(`Day ${day} holiday status: ${isHoliday ? holidayValue : 'working'}`);
+
+            // غیرفعال کردن تمام ورودی‌های آن روز
+            const dayInputs = document.querySelectorAll(`[id^="time_${day}_${key}"]`);
+            const dayCheckboxes = document.querySelectorAll(`[id^="checkbox_${day}_${key}"]`);
+
+            dayInputs.forEach(input => {
+                input.disabled = isHoliday;
+            });
+
+            dayCheckboxes.forEach(checkbox => {
+                checkbox.disabled = isHoliday;
+            });
+            saveTimerDataToFile();
+        }
+
+        function getTimersJs() {
+
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function () {
+                if (this.readyState == 4 && this.status == 200) {
+                    try {
+                        var obj = JSON.parse(this.responseText);
+                        console.log("Data received: ", obj);
+
+
+                        // فرض می‌کنیم data یک آرایه است و ما با اولین عنصر آن کار داریم
+
+
+                        // برای هر روز هفته (0 تا 6)
+                        for (let day = 0; day <= 6; day++) {
+                            const timerData = data[0];
+                            // برای هر کلید (1 تا 3)
+                            for (let key = 1; key <= 3; key++) {
+                                // تنظیم زمان‌های تایمر اول
+                                const timeOnElement = document.getElementById(`time_${day}_${key}_on`);
+                                const timeOffElement = document.getElementById(`time_${day}_${key}_off`);
+
+                                if (timeOnElement) timeOnElement.value = timerData[`${key}on`];
+                                if (timeOffElement) timeOffElement.value = timerData[`${key}off`];
+
+                                // تنظیم وضعیت تایمر دوم
+                                const isTimer2 = timerData[`${key}is_timer2`] === "1";
+                                const checkbox = document.getElementById(`checkbox_${day}_${key}`);
+                                const timerTwoDiv = document.getElementById(`timer_two_${day}_${key}`);
+
+                                if (checkbox && timerTwoDiv) {
+                                    checkbox.checked = isTimer2;
+                                    timerTwoDiv.style.display = isTimer2 ? 'block' : 'none';
+                                }
+
+                                // تنظیم زمان‌های تایمر دوم
+                                if (isTimer2) {
+                                    const timeTwoOnElement = document.getElementById(`time_${day}_${key}_two_on`);
+                                    const timeTwoOffElement = document.getElementById(`time_${day}_${key}_two_off`);
+
+                                    if (timeTwoOnElement) timeTwoOnElement.value = timerData[`${key}on2`];
+                                    if (timeTwoOffElement) timeTwoOffElement.value = timerData[`${key}off2`];
+                                }
+
+                                // تنظیم وضعیت تعطیلی
+                                const isHoliday = timerData[`${key}isholiday`] === "1";
+                                const holidayCheckbox = document.getElementById(`holiday_${day}`);
+
+                                if (holidayCheckbox && isHoliday) {
+                                    holidayCheckbox.checked = true;
+                                    setHoliday(day.toString()); // فعال کردن تابع غیرفعال‌سازی فیلدها
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error parsing JSON data: ", e);
+                    }
+                }
+            };
+
+        }
+        function elementExists(id) {
+            return document.getElementById(id) !== null;
+        }
+        window.addEventListener('load', saveTimerDataToFile);
+        window.addEventListener('beforeunload', function () {
+            saveTimerDataToFile();
+        });
+        document.addEventListener('DOMContentLoaded', function () {
+            const div = document.getElementById("about");
+            div.addEventListener("click", function () {
+                document.getElementById("page-index").style.display = "none"; //hide
+                document.getElementById("page-about").style.display = "block"; //show
+            });
+
+            const div2 = document.getElementById("home");
+            div2.addEventListener("click", function () {
+                document.getElementById("page-index").style.display = "block"; //show
+                document.getElementById("page-about").style.display = "none"; //hide
+            });
+
+            // Call the timer fetch function after DOM is ready
+
+            loadTimerDataFromFile();
+
+
+        });
+        function getTimersJsTest(data) {
+            // تبدیل رشته JSON به آبجکت در صورت نیاز
+            if (typeof data === 'string') {
+                data = JSON.parse(data);
+            }
+
+            // فرض می‌کنیم data یک آرایه است و ما با اولین عنصر آن کار داریم
+
+
+            // برای هر روز هفته (0 تا 6)
+            for (let day = 0; day <= 6; day++) {
+                const timerData_item = data[day];
+                // برای هر کلید (1 تا 3)
+                for (let key = 1; key <= 3; key++) {
+                    // تنظیم زمان‌های تایمر اول
+                    const timeOnElement = document.getElementById(`time_${day}_${key}_on`);
+                    const timeOffElement = document.getElementById(`time_${day}_${key}_off`);
+
+                    if (timeOnElement) timeOnElement.value = timerData_item[`${key}on`];
+                    if (timeOffElement) timeOffElement.value = timerData_item[`${key}off`];
+
+                    // تنظیم وضعیت تایمر دوم
+                    const isTimer2 = timerData_item[`${key}is_timer2`] === "1";
+                    const checkbox = document.getElementById(`checkbox_${day}_${key}`);
+                    const timerTwoDiv = document.getElementById(`timer_two_${day}_${key}`);
+
+                    if (checkbox && timerTwoDiv) {
+                        checkbox.checked = isTimer2;
+                        timerTwoDiv.style.display = isTimer2 ? 'block' : 'none';
+                    }
+
+                    // تنظیم زمان‌های تایمر دوم
+                    if (isTimer2) {
+                        const timeTwoOnElement = document.getElementById(`time_${day}_${key}_two_on`);
+                        const timeTwoOffElement = document.getElementById(`time_${day}_${key}_two_off`);
+
+                        if (timeTwoOnElement) timeTwoOnElement.value = timerData_item[`${key}on2`];
+                        if (timeTwoOffElement) timeTwoOffElement.value = timerData_item[`${key}off2`];
+                    }
+
+                    // تنظیم وضعیت تعطیلی
+                    const isHoliday = timerData_item[`${key}isholiday`] === "1";
+                    const holidayCheckbox = document.getElementById(`checkboxH_${day}_${key}`);
+
+                    if (holidayCheckbox && isHoliday) {
+                        holidayCheckbox.checked = true;
+                        setHoliday(day, key); // فعال کردن تابع غیرفعال‌سازی فیلدها
+                    }
+                }
+            }
+        }
+
+        // تابع کمکی برای چک کردن وجود یک المان
+
+        // نمونه استفاده:
+        const DEFAULT_TIMER_DATA = [{
+            "1on": "17:46",
+            "1off": "17:47",
+            "1on2": "17:47",
+            "1off2": "17:43",
+            "1is_timer2": "0",
+            "1isholiday": "1",
+            "2on": "17:46",
+            "2off": "17:47",
+            "2on2": "17:47",
+            "2off2": "17:43",
+            "2is_timer2": "1",
+            "2isholiday": "0",
+            "3on": "17:46",
+            "3off": "17:47",
+            "3on2": "17:47",
+            "3off2": "17:43",
+            "3is_timer2": "0",
+            "3isholiday": "0"
+        }, {
+            "1on": "17:46",
+            "1off": "17:47",
+            "1on2": "17:47",
+            "1off2": "17:43",
+            "1is_timer2": "0",
+            "1isholiday": "0",
+            "2on": "17:46",
+            "2off": "17:47",
+            "2on2": "17:47",
+            "2off2": "17:43",
+            "2is_timer2": "0",
+            "2isholiday": "0",
+            "3on": "17:46",
+            "3off": "17:47",
+            "3on2": "17:47",
+            "3off2": "17:43",
+            "3is_timer2": "0",
+            "3isholiday": "0"
+        }, {
+            "1on": "17:46",
+            "1off": "17:47",
+            "1on2": "17:47",
+            "1off2": "17:43",
+            "1is_timer2": "0",
+            "1isholiday": "0",
+            "2on": "17:46",
+            "2off": "17:47",
+            "2on2": "17:47",
+            "2off2": "17:43",
+            "2is_timer2": "0",
+            "2isholiday": "0",
+            "3on": "17:46",
+            "3off": "17:47",
+            "3on2": "17:47",
+            "3off2": "17:43",
+            "3is_timer2": "0",
+            "3isholiday": "0"
+        }, {
+            "1on": "17:46",
+            "1off": "17:47",
+            "1on2": "17:47",
+            "1off2": "17:43",
+            "1is_timer2": "0",
+            "1isholiday": "0",
+            "2on": "17:46",
+            "2off": "17:47",
+            "2on2": "17:47",
+            "2off2": "17:43",
+            "2is_timer2": "0",
+            "2isholiday": "0",
+            "3on": "17:46",
+            "3off": "17:47",
+            "3on2": "17:47",
+            "3off2": "17:43",
+            "3is_timer2": "0",
+            "3isholiday": "0"
+        }, {
+            "1on": "17:46",
+            "1off": "17:47",
+            "1on2": "17:47",
+            "1off2": "17:43",
+            "1is_timer2": "0",
+            "1isholiday": "0",
+            "2on": "17:46",
+            "2off": "17:47",
+            "2on2": "17:47",
+            "2off2": "17:43",
+            "2is_timer2": "0",
+            "2isholiday": "0",
+            "3on": "17:46",
+            "3off": "17:47",
+            "3on2": "17:47",
+            "3off2": "17:43",
+            "3is_timer2": "0",
+            "3isholiday": "0"
+        }, {
+            "1on": "17:46",
+            "1off": "17:47",
+            "1on2": "17:47",
+            "1off2": "17:43",
+            "1is_timer2": "0",
+            "1isholiday": "0",
+            "2on": "17:46",
+            "2off": "17:47",
+            "2on2": "17:47",
+            "2off2": "17:43",
+            "2is_timer2": "0",
+            "2isholiday": "0",
+            "3on": "17:46",
+            "3off": "17:47",
+            "3on2": "17:47",
+            "3off2": "17:43",
+            "3is_timer2": "0",
+            "3isholiday": "0"
+        }, {
+            "1on": "17:50",
+            "1off": "17:47",
+            "1on2": "17:47",
+            "1off2": "17:43",
+            "1is_timer2": "0",
+            "1isholiday": "0",
+            "2on": "17:46",
+            "2off": "17:47",
+            "2on2": "17:47",
+            "2off2": "17:43",
+            "2is_timer2": "0",
+            "2isholiday": "0",
+            "3on": "18:46",
+            "3off": "19:47",
+            "3on2": "17:47",
+            "3off2": "17:43",
+            "3is_timer2": "0",
+            "3isholiday": "0"
+        }];
+
+    </script>
+
+
+    <div class="container">
+        <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 539.09 198.95">
+            <defs>
+                <style>
+                    .cls-1 {
+                        fill: #900c3f;
+                    }
+
+                    .cls-1,
+                    .cls-2 {
+                        stroke: #1d1d1b;
+                    }
+
+                    .cls-1,
+                    .cls-2,
+                    .cls-3 {
+                        stroke-miterlimit: 10;
+                    }
+
+                    .cls-2 {
+                        fill: #036;
+                    }
+
+                    .cls-3 {
+                        fill: none;
+                        stroke: #900c3f;
+                        stroke-width: 6px;
+                    }
+                </style>
+            </defs>
+            <g id="_3" data-name="3">
+                <path class="cls-1"
+                    d="M371.27,296.18h-3.16a25,25,0,0,1-19.12,0H320.64c5.7,1.45,10.84,3.67,9.06,12.41-1.3,10.64,8.23,12.1,15.09,8.17,7.82-5.8,13.73-8.33,21,1.2,4.38,5.76,15.68,2.41,15.57-4.3-.09-13.65,5.83-14.45,12.62-15.56h-22.6Z"
+                    transform="translate(-30.93 -146.1)" />
+                <path class="cls-1"
+                    d="M406.37,250.23c-1.63-1.54-2.78-.94-11.06-2.87-5.52-1.28-6.36-1.89-7-2.66-1.77-1.88-1.06-14.37-4.4-16.35-8.31-5.71-18.12,4.4-23.8,4.55-5.85-.72-11.74-11.11-19.65-8C326,235.78,345.92,245,316.38,246.38c-7.88,1.87-10.49,9.22-4.47,14.74,11.29,9.29,1.57,15.37-3.53,24.37a10.42,10.42,0,0,0-.2,2.21H339a23.73,23.73,0,0,1-3.29-12.09c.49-28.31,40.23-29.88,45.13-4.77h18.84a18.57,18.57,0,0,1,2.34-3.08C408.27,261.64,411.63,257,406.37,250.23Z"
+                    transform="translate(-30.93 -146.1)" />
+                <path class="cls-2"
+                    d="M59,204.75h61.86L54.82,323c18.09.09,13.62.17,31.72.26l67.33-118.54c142.76.18,241.9.37,384.66.55q8.91-15.86,17.8-31.72h-480Z"
+                    transform="translate(-30.93 -146.1)" />
+                <polygon class="cls-1" points="81.33 150.33 66.35 176.93 93.55 177.18 108.8 150.08 81.33 150.33" />
+                <path class="cls-2"
+                    d="M152.17,253.39l17.45-32.25h66.27L217,253.39H199.84L160.75,323H134.28c13-22.53,25.95-47.11,38.92-69.64Z"
+                    transform="translate(-30.93 -146.1)" />
+                <path class="cls-2" d="M321.73,221.14H245l-18.1,32.25h76.8Q312.71,237.27,321.73,221.14Z"
+                    transform="translate(-30.93 -146.1)" />
+                <path class="cls-2" d="M396.87,287.7" transform="translate(-30.93 -146.1)" />
+                <path class="cls-2"
+                    d="M399.88,287.7a42,42,0,0,1-.61,4.49,45,45,0,0,1-2.37,8.16h0c-8.27,17.28-18.09,21.8-19.1,22.68H187.48l34.83-61.43H299s0,0,0,0l-14.65,26.1H234.73l-4.53,8.47H358.49a19.9,19.9,0,0,0,13.43-2.77,19.1,19.1,0,0,0,5.92-6.05Z"
+                    transform="translate(-30.93 -146.1)" />
+                <path class="cls-2"
+                    d="M421,323l20.11-35.84c6.43.16,18.88.32,25.31.47q-9.93,17.68-19.85,35.37h27.07L530.8,221.14H503.73c-6,10.75-16.44,29-22.41,39.77-6.51-.13-19-.27-25.55-.41,6-10.61,16.43-28.75,22.39-39.36H451.08L393.89,323Z"
+                    transform="translate(-30.93 -146.1)" />
+            </g>
+            <path class="cls-3"
+                d="M90.46,149.1a56.71,56.71,0,0,0-56.53,56.54V329l0,13,28.37,0H510.48A56.7,56.7,0,0,0,567,285.52V149.1H90.46Z"
+                transform="translate(-30.93 -146.1)" />
+            <path class="cls-3" d="M619.35,183.26" transform="translate(-30.93 -146.1)" />
+        </svg>
+
+    </div>
+    <div id="page-index">
+        <div class="container">
+            <label class="labelw">شنبه</h1>
+
+        </div>
+        <div class="container">
+
+            <!-- ستون 1 -->
+            <div class="column">
+                <h2>کلید شماره 1</h2>
+                <label for="time_0_1_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_0_1_on" name="time_0_1_on" onchange="settime_on('0', 1, 'time_0_1_on')">
+
+                <label for="time_0_1_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_0_1_off" name="time_0_1_off" onchange="settime_off('0', 1, 'time_0_1_off')">
+
+                <input type="checkbox" id="checkbox_0_1" onchange="show_timer_two('0', 1)">
+                <label for="checkbox_0_1">فعال کردن تایمر دوم</label>
+
+
+
+
+                <div id="timer_two_0_1" style="display: none;">
+                    <label for="time_0_1_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_0_1_two_on" name="time_0_1_two_on"
+                        onchange="settime_on('0', 1, 'time_0_1_two_on')">
+
+                    <label for="time_0_1_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_0_1_two_off" name="time_0_1_two_off"
+                        onchange="settime_off('0', 1, 'time_0_1_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_0_1" onchange="setHoliday('0', 1)">
+                <label for="checkboxH_0_1">روز تعطیل</label>
+
+            </div>
+
+            <!-- کلید 2 -->
+            <div class="column">
+                <h2>کلید شماره 2</h2>
+                <label for="time_0_2_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_0_2_on" name="time_0_2_on" onchange="settime_on('0', 2, 'time_0_2_on')">
+
+                <label for="time_0_2_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_0_2_off" name="time_0_2_off" onchange="settime_off('0', 2, 'time_0_2_off')">
+
+                <input type="checkbox" id="checkbox_0_2" onchange="show_timer_two('0', 2)">
+                <label for="checkbox_0_2">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_0_2" style="display: none;">
+                    <label for="time_0_2_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_0_2_two_on" name="time_0_2_two_on"
+                        onchange="settime_on('0', 2, 'time_0_2_two_on')">
+
+                    <label for="time_0_2_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_0_2_two_off" name="time_0_2_two_off"
+                        onchange="settime_off('0', 2, 'time_0_2_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_0_2" onchange="setHoliday('0', 2)">
+                <label for="checkboxH_0_2">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 3 -->
+            <div class="column">
+                <h2>کلید شماره 3</h2>
+                <label for="time_0_3_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_0_3_on" name="time_0_3_on" onchange="settime_on('0', 3, 'time_0_3_on')">
+
+                <label for="time_0_3_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_0_3_off" name="time_0_3_off" onchange="settime_off('0', 3, 'time_0_3_off')">
+
+                <input type="checkbox" id="checkbox_0_3" onchange="show_timer_two('0', 3)">
+                <label for="checkbox_0_3">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_0_3" style="display: none;">
+                    <label for="time_0_3_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_0_3_two_on" name="time_0_3_two_on"
+                        onchange="settime_on('0', 3, 'time_0_3_two_on')">
+
+                    <label for="time_0_3_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_0_3_two_off" name="time_0_3_two_off"
+                        onchange="settime_off('0', 3, 'time_0_3_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_0_3" onchange="setHoliday('0', 3)">
+                <label for="checkboxH_0_3">روز تعطیل</label>
+            </div>
+        </div>
+        <div class="container">
+            <label class="labelw">یکشنبه</h1>
+
+        </div>
+        <div class="container">
+            <!-- ستون 1 -->
+            <div class="column">
+                <h2>کلید شماره 1</h2>
+                <label for="time_1_1_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_1_1_on" name="time_1_1_on" onchange="settime_on('1', 1, 'time_on')">
+
+                <label for="time_1_1_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_1_1_off" name="time_1_1_off" onchange="settime_off('1', 1, 'time_off')">
+
+                <input type="checkbox" id="checkbox_1_1" onchange="show_timer_two('1', 1)">
+                <label for="checkbox_1_1">فعال کردن تایمر دوم</label>
+
+
+                <div id="timer_two_1_1" style="display: none;">
+                    <label for="time_1_1_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_1_1_two_on" name="time_1_1_two_on"
+                        onchange="settime_on('1', 1, 'time_two_on')">
+
+                    <label for="time_1_1_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_1_1_two_off" name="time_1_1_two_off"
+                        onchange="settime_off('1', 1, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_1_1" onchange="setHoliday('1', 1)">
+                <label for="checkboxH_1_1">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 2 -->
+            <div class="column">
+                <h2>کلید شماره 2</h2>
+                <label for="time_1_2_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_1_2_on" name="time_1_2_on" onchange="settime_on('1', 2, 'time_on')">
+
+                <label for="time_1_2_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_1_2_off" name="time_1_2_off" onchange="settime_off('1', 2, 'time_off')">
+
+                <input type="checkbox" id="checkbox_1_2" onchange="show_timer_two('1', 2)">
+                <label for="checkbox_1_2">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_1_2" style="display: none;">
+                    <label for="time_1_2_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_1_2_two_on" name="time_1_2_two_on"
+                        onchange="settime_on('1', 2, 'time_two_on')">
+
+                    <label for="time_1_2_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_1_2_two_off" name="time_1_2_two_off"
+                        onchange="settime_off('1', 2, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_1_2" onchange="setHoliday('1', 2)">
+                <label for="checkboxH_1_2">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 3 -->
+            <div class="column">
+                <h2>کلید شماره 3</h2>
+                <label for="time_1_3_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_1_3_on" name="time_1_3_on" onchange="settime_on('1', 3, 'time_on')">
+
+                <label for="time_1_3_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_1_3_off" name="time_1_3_off" onchange="settime_off('1', 3, 'time_off')">
+
+                <input type="checkbox" id="checkbox_1_3" onchange="show_timer_two('1', 3)">
+                <label for="checkbox_1_3">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_1_3" style="display: none;">
+                    <label for="time_1_3_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_1_3_two_on" name="time_1_3_two_on"
+                        onchange="settime_on('1', 3, 'time_two_on')">
+
+                    <label for="time_1_3_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_1_3_two_off" name="time_1_3_two_off"
+                        onchange="settime_off('1', 3, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_1_3" onchange="setHoliday('1', 3)">
+                <label for="checkboxH_1_3">روز تعطیل</label>
+            </div>
+
+        </div>
+
+        <div class="container">
+            <label class="labelw">دوشنبه</h1>
+
+        </div>
+        <div class="container">
+            <!-- ستون 1 -->
+            <div class="column">
+                <h2>کلید شماره 1</h2>
+                <label for="time_2_1_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_2_1_on" name="time_2_1_on" onchange="settime_on('2', 1, 'time_on')">
+
+                <label for="time_2_1_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_2_1_off" name="time_2_1_off" onchange="settime_off('2', 1, 'time_off')">
+
+                <input type="checkbox" id="checkbox_2_1" onchange="show_timer_two('2', 1)">
+                <label for="checkbox_2_1">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_2_1" style="display: none;">
+                    <label for="time_2_1_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_two_on" name="time_2_1_two_on"
+                        onchange="settime_on('2', 1, 'time_2_1_two_on')">
+
+                    <label for="time_2_1_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_two_off" name="time_2_1_two_off"
+                        onchange="settime_off('2', 1, 'time_2_1_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_2_1" onchange="setHoliday('2', 1)">
+                <label for="checkboxH_2_1">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 2 -->
+            <div class="column">
+                <h2>کلید شماره 2</h2>
+                <label for="time_2_2_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_2_2_on" name="time_2_2_on" onchange="settime_on('2', 2, 'time_on')">
+
+                <label for="time_2_2_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_2_2_off" name="time_2_2_off" onchange="settime_off('2', 2, 'time_off')">
+
+                <input type="checkbox" id="checkbox_2_2" onchange="show_timer_two('2', 2)">
+                <label for="checkbox_2_2">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_2_2" style="display: none;">
+                    <label for="time_2_2_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_2_2_two_on" name="time_2_2_two_on"
+                        onchange="settime_on('2', 2, 'time_two_on')">
+
+                    <label for="time_2_2_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_2_2_two_off" name="time_2_2_two_off"
+                        onchange="settime_off('2', 2, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_2_2" onchange="setHoliday('2', 2)">
+                <label for="checkboxH_2_2">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 3 -->
+            <div class="column">
+                <h2>کلید شماره 3</h2>
+                <label for="time_2_3_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_2_3_on" name="time_2_3_on" onchange="settime_on('2', 3, 'time_2_3_on')">
+
+                <label for="time_2_3_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_2_3_off" name="time_2_3_off" onchange="settime_off('2', 3, 'time_2_3_off')">
+
+                <input type="checkbox" id="checkbox_2_3" onchange="show_timer_two('2', 3)">
+                <label for="checkbox_2_3">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_2_3" style="display: none;">
+                    <label for="time_2_3_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_2_3_two_on" name="time_2_3_two_on"
+                        onchange="settime_on('2', 3, 'time_two_on')">
+
+                    <label for="time_2_3_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_2_3_two_off" name="time_2_3_two_off"
+                        onchange="settime_off('2', 3, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_2_3" onchange="setHoliday('2', 3)">
+                <label for="checkboxH_2_3">روز تعطیل</label>
+            </div>
+        </div>
+        <div class="container">
+            <label class="labelw">سه شنبه</h1>
+
+        </div>
+        <div class="container">
+            <!-- ستون 1 -->
+            <div class="column">
+                <h2>کلید شماره 1</h2>
+                <label for="time_3_1_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_3_1_on" name="time_3_1_on" onchange="settime_on('3', 1, 'time_on')">
+
+                <label for="time_3_1_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_3_1_off" name="time_3_1_off" onchange="settime_off('3', 1, 'time_off')">
+
+                <input type="checkbox" id="checkbox_3_1" onchange="show_timer_two('3', 1)">
+                <label for="checkbox_3_1">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_3_1" style="display: none;">
+                    <label for="time_3_1_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_3_1_two_on" name="time_3_1_two_on"
+                        onchange="settime_on('3', 1, 'time_two_on')">
+
+                    <label for="time_3_1_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_3_1_two_off" name="time_3_1_two_off"
+                        onchange="settime_off('3', 1, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_3_1" onchange="setHoliday('3', 1)">
+                <label for="checkboxH_3_1">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 2 -->
+            <div class="column">
+                <h2>کلید شماره 2</h2>
+                <label for="time_3_2_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_3_2_on" name="time_3_2_on" onchange="settime_on('3', 2, 'time_on')">
+
+                <label for="time_3_2_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_3_2_off" name="time_3_2_off" onchange="settime_off('3', 2, 'time_off')">
+
+                <input type="checkbox" id="checkbox_3_2" onchange="show_timer_two('3', 2)">
+                <label for="checkbox_3_2">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_3_2" style="display: none;">
+                    <label for="time_3_2_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_3_2_two_on" name="time_3_2_two_on"
+                        onchange="settime_on('3', 2, 'time_two_on')">
+
+                    <label for="time_3_2_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_3_2_two_off" name="time_3_2_two_off"
+                        onchange="settime_off('3', 2, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_3_2" onchange="setHoliday('3', 2)">
+                <label for="checkboxH_3_2">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 3 -->
+            <div class="column">
+                <h2>کلید شماره 3</h2>
+                <label for="time_3_3_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_3_3_on" name="time_3_3_on" onchange="settime_on('3', 3, 'time_on')">
+
+                <label for="time_3_3_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_3_3_off" name="time_3_3_off" onchange="settime_off('3', 3, 'time_off')">
+
+                <input type="checkbox" id="checkbox_3_3" onchange="show_timer_two('3', 3)">
+                <label for="checkbox_3_3">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_3_3" style="display: none;">
+                    <label for="time_3_3_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_3_3_two_on" name="time_3_3_two_on"
+                        onchange="settime_on('3', 3, 'time_two_on')">
+
+                    <label for="time_3_3_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_3_3_two_off" name="time_3_3_two_off"
+                        onchange="settime_off('3', 3, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_3_3" onchange="setHoliday('3', 3)">
+                <label for="checkboxH_3_3">روز تعطیل</label>
+            </div>
+        </div>
+        <div class="container">
+            <label class="labelw">چهارشنبه</h1>
+
+        </div>
+        <div class="container">
+            <!-- ستون 1 -->
+            <div class="column">
+                <h2>کلید شماره 1</h2>
+                <label for="time_4_1_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_4_1_on" name="time_4_1_on" onchange="settime_on('4', 1, 'time_on')">
+
+                <label for="time_4_1_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_4_1_off" name="time_4_1_off" onchange="settime_off('4', 1, 'time_off')">
+
+                <input type="checkbox" id="checkbox_4_1" onchange="show_timer_two('4', 1)">
+                <label for="checkbox_4_1">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_4_1" style="display: none;">
+                    <label for="time_4_1_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_4_1_two_on" name="time_4_1_two_on"
+                        onchange="settime_on('4', 1, 'time_two_on')">
+
+                    <label for="time_4_1_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_4_1_two_off" name="time_4_1_two_off"
+                        onchange="settime_off('4', 1, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_4_1" onchange="setHoliday('4', 1)">
+                <label for="checkboxH_4_1">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 2 -->
+            <div class="column">
+                <h2>کلید شماره 2</h2>
+                <label for="time_4_2_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_4_2_on" name="time_4_2_on" onchange="settime_on('4', 2, 'time_on')">
+
+                <label for="time_4_2_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_4_2_off" name="time_4_2_off" onchange="settime_off('4', 2, 'time_off')">
+
+                <input type="checkbox" id="checkbox_4_2" onchange="show_timer_two('4', 2)">
+                <label for="checkbox_4_2">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_4_2" style="display: none;">
+                    <label for="time_4_2_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_4_2_two_on" name="time_4_2_two_on"
+                        onchange="settime_on('4', 2, 'time_two_on')">
+
+                    <label for="time_4_2_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_4_2_two_off" name="time_4_2_two_off"
+                        onchange="settime_off('4', 2, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_4_2" onchange="setHoliday('4', 2)">
+                <label for="checkboxH_4_2">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 3 -->
+            <div class="column">
+                <h2>کلید شماره 3</h2>
+                <label for="time_4_3_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_4_3_on" name="time_4_3_on" onchange="settime_on('4', 3, 'time_on')">
+
+                <label for="time_4_3_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_4_3_off" name="time_4_3_off" onchange="settime_off('4', 3, 'time_off')">
+
+                <input type="checkbox" id="checkbox_4_3" onchange="show_timer_two('4', 3)">
+                <label for="checkbox_4_3">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_4_3" style="display: none;">
+                    <label for="time_4_3_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_4_3_two_on" name="time_4_3_two_on"
+                        onchange="settime_on('4', 3, 'time_two_on')">
+
+                    <label for="time_4_3_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_4_3_two_off" name="time_4_3_two_off"
+                        onchange="settime_off('4', 3, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_4_3" onchange="setHoliday('4', 3)">
+                <label for="checkboxH_4_3">روز تعطیل</label>
+            </div>
+
+        </div>
+        <div class="container">
+            <label class="labelw">پنجشنبه</h1>
+
+        </div>
+        <div class="container">
+            <!-- ستون 1 -->
+            <div class="column">
+                <h2>کلید شماره 1</h2>
+                <label for="time_5_1_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_5_1_on" name="time_5_1_on" onchange="settime_on('5', 1, 'time_on')">
+
+                <label for="time_5_1_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_5_1_off" name="time_5_1_off" onchange="settime_off('5', 1, 'time_off')">
+
+                <input type="checkbox" id="checkbox_5_1" onchange="show_timer_two('5', 1)">
+                <label for="checkbox_5_1">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_5_1" style="display: none;">
+                    <label for="time_5_1_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_5_1_two_on" name="time_5_1_two_on"
+                        onchange="settime_on('5', 1, 'time_two_on')">
+
+                    <label for="time_5_1_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_5_1_two_off" name="time_5_1_two_off"
+                        onchange="settime_off('5', 1, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_5_1" onchange="setHoliday('5', 1)">
+                <label for="checkboxH_5_1">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 2 -->
+            <div class="column">
+                <h2>کلید شماره 2</h2>
+                <label for="time_5_2_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_5_2_on" name="time_5_2_on" onchange="settime_on('5', 2, 'time_on')">
+
+                <label for="time_5_2_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_5_2_off" name="time_5_2_off" onchange="settime_off('5', 2, 'time_off')">
+
+                <input type="checkbox" id="checkbox_5_2" onchange="show_timer_two('5', 2)">
+                <label for="checkbox_5_2">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_5_2" style="display: none;">
+                    <label for="time_5_2_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_5_2_two_on" name="time_5_2_two_on"
+                        onchange="settime_on('5', 2, 'time_two_on')">
+
+                    <label for="time_5_2_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_5_2_two_off" name="time_5_2_two_off"
+                        onchange="settime_off('5', 2, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_5_2" onchange="setHoliday('5', 2)">
+                <label for="checkboxH_5_2">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 3 -->
+            <div class="column">
+                <h2>کلید شماره 3</h2>
+                <label for="time_5_3_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_5_3_on" name="time_5_3_on" onchange="settime_on('5', 3, 'time_on')">
+
+                <label for="time_5_3_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_5_3_off" name="time_5_3_off" onchange="settime_off('5', 3, 'time_off')">
+
+                <input type="checkbox" id="checkbox_5_3" onchange="show_timer_two('5', 3)">
+                <label for="checkbox_5_3">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_5_3" style="display: none;">
+                    <label for="time_5_3_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_5_3_two_on" name="time_5_3_two_on"
+                        onchange="settime_on('5', 3, 'time_two_on')">
+
+                    <label for="time_5_3_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_5_3_two_off" name="time_5_3_two_off"
+                        onchange="settime_off('5', 3, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_5_3" onchange="setHoliday('5', 3)">
+                <label for="checkboxH_5_3">روز تعطیل</label>
+            </div>
+        </div>
+        <div class="container">
+            <label class="labelw">جمعه</h1>
+
+        </div>
+        <div class="container">
+            <!-- ستون 1 -->
+            <div class="column">
+                <h2>کلید شماره 1</h2>
+                <label for="time_6_1_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_6_1_on" name="time_6_1_on" onchange="settime_on('6', 1, 'time_on')">
+
+                <label for="time_6_1_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_6_1_off" name="time_6_1_off" onchange="settime_off('6', 1, 'time_off')">
+
+                <input type="checkbox" id="checkbox_6_1" onchange="show_timer_two('6', 1)">
+                <label for="checkbox_6_1">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_6_1" style="display: none;">
+                    <label for="time_6_1_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_6_1_two_on" name="time_6_1_two_on"
+                        onchange="settime_on('6', 1, 'time_two_on')">
+
+                    <label for="time_6_1_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_6_1_two_off" name="time_6_1_two_off"
+                        onchange="settime_off('6', 1, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_6_1" onchange="setHoliday('6', 1)">
+                <label for="checkboxH_6_1">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 2 -->
+            <div class="column">
+                <h2>کلید شماره 2</h2>
+                <label for="time_6_2_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_6_2_on" name="time_6_2_on" onchange="settime_on('6', 2, 'time_on')">
+
+                <label for="time_6_2_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_6_2_off" name="time_6_2_off" onchange="settime_off('6', 2, 'time_off')">
+
+                <input type="checkbox" id="checkbox_6_2" onchange="show_timer_two('6', 2)">
+                <label for="checkbox_6_2">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_6_2" style="display: none;">
+                    <label for="time_6_2_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_6_2_two_on" name="time_6_2_two_on"
+                        onchange="settime_on('6', 2, 'time_two_on')">
+
+                    <label for="time_6_2_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_6_2_two_off" name="time_6_2_two_off"
+                        onchange="settime_off('6', 2, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_6_2" onchange="setHoliday('6', 2)">
+                <label for="checkboxH_6_2">روز تعطیل</label>
+            </div>
+
+            <!-- کلید 3 -->
+            <div class="column">
+                <h2>کلید شماره 3</h2>
+                <label for="time_6_3_on" class="label">ساعت روشن شدن اول:</label>
+                <input type="time" id="time_6_3_on" name="time_6_3_on" onchange="settime_on('6', 3, 'time_on')">
+
+                <label for="time_6_3_off" class="label">ساعت خاموش شدن اول:</label>
+                <input type="time" id="time_6_3_off" name="time_6_3_off" onchange="settime_off('6', 3, 'time_off')">
+
+                <input type="checkbox" id="checkbox_6_3" onchange="show_timer_two('6', 3)">
+                <label for="checkbox_6_3">فعال کردن تایمر دوم</label>
+
+                <div id="timer_two_6_3" style="display: none;">
+                    <label for="time_6_3_two_on" class="label">ساعت روشن شدن دوم:</label>
+                    <input type="time" id="time_6_3_two_on" name="time_6_3_two_on"
+                        onchange="settime_on('6', 3, 'time_two_on')">
+
+                    <label for="time_6_3_two_off" class="label">ساعت خاموش شدن دوم:</label>
+                    <input type="time" id="time_6_3_two_off" name="time_6_3_two_off"
+                        onchange="settime_off('6', 3, 'time_two_off')">
+                </div>
+                <br>
+                <input type="checkbox" id="checkboxH_6_3" onchange="setHoliday('6', 3)">
+                <label for="checkboxH_6_3">روز تعطیل</label>
+            </div>
+        </div>
+    </div>
+    <div id="page-about">
+        <div class="cover">
+            <h1>درباره ما</h1>
+            <p>
+                مجموعه ما با ۴ سال تجربه بصورت تخصصی در زمینه تعمیرات الکترونیکی
+                اسپرسوساز های صنعتی و آسیاب ، طراحی و تولید بردهای اسپرسوساز ،تولید سنسور و تایمر در شهر اصفهان فعالیت
+                دارد.
+            </p>
+            <p>
+
+                اینستاگرام: <a
+                    href="https://www.instagram.com/t.tech_espressoo?igsh=MXBrdDlnbXdiMnVjdg==">اینستاگرام</a> <br />
+                شماره تماس : <a href="tel:+989136949639">09136949639</a> <br />
+            </p>
+            <br />
+            <button id="home">بازگشت به صفحه اصلی</button>
+        </div>
+    </div>
+    <br />
+    <div class="container">
+        <button id="about">درباره ما</button>
+        <br />
+        <br />
+        <br />
+        <button id="settime" onclick="settime()">تنظیم ساعت</button>
+    </div>
+</body>
+
+</html>
