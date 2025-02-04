@@ -145,16 +145,28 @@ void checkTimers() {
     DateTime now = rtc.now();
     char currentTime[6];
     sprintf(currentTime, "%02d:%02d", now.hour(), now.minute());
-    
+
     int dayOfWeek = now.dayOfTheWeek();
+    
+    // بررسی اینکه مقدار معتبر است یا نه
+    if (!timerData[dayOfWeek].is<JsonObject>()) {
+        Serial.printf("Error: timerData for day %d is invalid!\n", dayOfWeek);
+        return;
+    }
+
     for (int i = 1; i <= 3; i++) {
         String onTime = timerData[dayOfWeek][String(i) + "on"].as<String>();
         String offTime = timerData[dayOfWeek][String(i) + "off"].as<String>();
-        
+
+        Serial.printf("Checking Relay %d: ON Time: %s | OFF Time: %s | Current Time: %s\n", 
+                      i, onTime.c_str(), offTime.c_str(), currentTime);
+
         if (onTime == currentTime) {
+            Serial.printf("Relay %d turned ON\n", i);
             digitalWrite(i == 1 ? RELAY1 : i == 2 ? RELAY2 : RELAY3, HIGH);
         }
         if (offTime == currentTime) {
+            Serial.printf("Relay %d turned OFF\n", i);
             digitalWrite(i == 1 ? RELAY1 : i == 2 ? RELAY2 : RELAY3, LOW);
         }
     }
